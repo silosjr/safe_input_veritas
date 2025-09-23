@@ -1,0 +1,40 @@
+# Build system requirements for packaging
+[build-system]
+requires = ["setuptools>=42", "wheel"]
+build-backend = "setuptools.build_meta"
+
+# Main project metadata
+[project]
+name = "safe_input_veritas"                     # Project name
+version = "0.1.0"                               # Current project version
+description = "Robust and extensible user input validation framework"  # Short project description
+readme = "README.md"                            # Path to the readme file
+license = { text = "MIT" }                      # License information
+authors = [                                     # Author(s) info
+    { name="Enock Silos", email="init.caucasian722@passfwd.com" }
+]
+requires-python = ">=3.8"                       # Minimum supported Python version
+classifiers = [                                 # PyPI classifiers for easier discovery
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent"
+]
+
+# Package discovery configuration
+[tool.setuptools.packages.find]
+where = ["src"]                                 # Tells setuptools to find packages under "src"
+
+# Keywords to help search engines and users find the project
+keywords = ["input-validation", "cli", "i18n", "logging", "security"]
+
+# Optional dependencies groups — useful for development requirements and extras
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",          # Testing framework
+    "pytest-cov>=4.0",      # Coverage reporting for tests
+    "flake8>=6.0",          # Code style and linting checks
+    "isort>=6.0",           # Import sorting and style enforcement
+    "black>=23.1",          # Automatic code formatter
+    "mypy>=1.0",            # Static type checking
+    "codecov>=2.0"          # Upload coverage reports to Codecov service
+]

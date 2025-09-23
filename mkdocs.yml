@@ -1,0 +1,19 @@
+site_name: Safe Input Veritas
+site_description: Documentação oficial do projeto Safe Input Veritas
+
+nav:
+  - Home: index.md
+  - Usage: usage.md
+
+theme:
+  name: material
+
+markdown_extensions:
+  - toc:
+      permalink: true
+  - tables
+  - admonition
+  - codehilite
+
+extra_css:
+  - stylesheets/custom.css  # opcional, se quiser personalizar o visual

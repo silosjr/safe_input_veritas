@@ -1,0 +1,151 @@
+# ===========================
+# Byte-compiled / optimized / DLL files
+# ===========================
+__pycache__/
+*.py[cod]
+*$py.class
+
+# ===========================
+# C extensions
+# ===========================
+*.so
+
+# ===========================
+# Virtual environments
+# Note: common environment folder names and backup variants are included.
+# ===========================
+.venv/
+venv/
+env/
+ENV/
+*venv.bak/
+*env.bak/
+
+# ===========================
+# Operating system and editor junk files
+# Includes macOS, Windows, Vim swap files, IDE/editor settings.
+# ===========================
+.DS_Store
+Thumbs.db
+
+# Swap files created by editors (e.g., Vim)
+*.swp
+*.swo
+
+# JetBrains IDE configuration directories
+.idea/
+
+# Visual Studio Code configuration directory
+.vscode/
+
+# Sublime Text project/workspace files (optional)
+*.sublime-workspace
+*.sublime-project
+
+# ===========================
+# Distribution and packaging artifacts
+# Files and directories created by setup tools and packaging.
+# ===========================
+.Python
+build/
+dist/
+sdist/
+wheels/
+share/python-wheels/
+.eggs/
+eggs/
+develop-eggs/
+downloads/
+lib/
+lib64/
+parts/
+*.egg-info/
+*.egg
+.installed.cfg
+MANIFEST
+
+# ===========================
+# Installer logs
+# ===========================
+pip-log.txt
+pip-delete-this-directory.txt
+
+# ===========================
+# Unit test and coverage reports
+# These directories and files are created by common test runners and coverage tools.
+# ===========================
+.tox/
+.nox/
+.pytest_cache/
+.hypothesis/
+.coverage
+.coverage.*
+.cache
+coverage.xml
+nosetests.xml
+htmlcov/
+cover/
+
+# ===========================
+# Type checking and static analysis caches
+# ===========================
+.mypy_cache/
+.dmypy.json
+dmypy.json
+.pyre/
+.pytype/
+ruff_cache/
+.pyright/
+
+# ===========================
+# Documentation builds
+# Common directories for generated documentation (Sphinx/MkDocs).
+# ===========================
+docs/_build/
+site/
+
+# ===========================
+# Jupyter / IPython checkpoints and config
+# ===========================
+.ipynb_checkpoints/
+profile_default/
+ipython_config.py
+
+# ===========================
+# Framework and tool-specific files
+# ===========================
+.scrapy/
+.webassets-cache/
+
+# Local project settings
+local_settings.py
+
+# SQLite databases and journals
+db.sqlite3
+db.sqlite3-journal
+
+# Celery beat schedule file
+celerybeat-schedule
+
+# Build target directory for some tools (e.g., Bazel, others)
+target/
+
+# Cython debug artifacts
+cython_debug/
+
+# ===========================
+# Project-specific ignores
+# Egg-info directories for package metadata.
+# ===========================
+src/safeinputveritas.egg-info/
+safeinputveritas.egg-info/
+
+# ===========================
+# Temporary and backup files
+# Common patterns for temporary, backup, and editor artifact files to avoid
+# accidental commits of local cache and temporary data.
+# ===========================
+*~
+*.bak
+*.tmp
+*.log

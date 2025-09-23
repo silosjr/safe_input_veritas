@@ -1,0 +1,12 @@
+{
+    "user_interrupted": "User interruption detected. Exiting gracefully.",
+    "unexpected_error": "Unexpected error occurred: {details}",
+    "invalid_input": "Invalid input. Please try again.",
+    "cancel_prompt": "Type 'q' to cancel input at any time.",
+    "pause_prompt": "Press Enter to continue...",
+    "input_prompt": "Please, enter a value: ",
+    "error_integer": "ERROR: Invalid integer input.",
+    "error_float": "ERROR: Invalid floating point input.",
+    "error_boolean": "ERROR: Invalid boolean input; please enter 'y' or 'n'.",
+    "converter_none_error": "ERROR: Converter function cannot be None."
+}

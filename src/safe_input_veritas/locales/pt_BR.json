@@ -1,0 +1,12 @@
+{
+    "user_interrupted": "Interrupção pelo usuário detectada. Encerrando com segurança.",
+    "unexpected_error": "Ocorreu um erro inesperado: {details}",
+    "invalid_input": "Entrada inválida. Por favor, tente novamente.",
+    "cancel_prompt": "Digite 'q' para cancelar a entrada a qualquer momento.",
+    "pause_prompt": "Pressione Enter para continuar...",
+    "input_prompt": "Por favor, insira um valor: ",
+    "error_integer": "ERRO: Entrada inválida para número inteiro.",
+    "error_float": "ERRO: Entrada inválida para número real.",
+    "error_boolean": "ERRO: Entrada booleana inválida; digite 'y' ou 'n'.",
+    "converter_none_error": "ERRO: A função conversora não pode ser None."
+}
