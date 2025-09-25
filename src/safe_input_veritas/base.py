@@ -1,187 +1,143 @@
 """
-SafeInputVeritas - A robust user input validation framework.
+base.py - Provides foundational components for a robust input validation framework.
 
-This module provides the foundational InputValidator class, which offers a
-generic, reusable mechanism to safely acquire and validate user input from
-the command line inteface (CLI). It abstracts away repetitive I/O logic
-and error handling, enabling strict and customizable validation via user-
-provided conversion functions.
+This module defines the `InputValidator` class, an architectural pattern designed
+to orchestrate secure and reliable user input acquisition from command-line interfaces.
+The design abstracts the complexities of I/O, error handling, and user cancellation
+flows, delegating the specific validation logic to external, user-provided callables
+(Strategy Pattern).
 
-Features include:
-- Generic validate method supporting any conversion callable that raises
-  ValueError on invalid input.
-- Graceful handling of user cancellation actions (Ctrl+C or 'q' key).
-- Extensible design allowing subclassing for specific data types (int, float,
-  bool) with standardized error messages and logic encapsulation.
-- Design with the best practices for production-ready code including
-  internationalization support (i18n), structured logging, and testability.
-- Targeted for use in security-sensitive applications demanding zero-trust
-  input handling and auditability.
-
-All methods return None on user cancellation or unhandled exceptions to
-guarantee a predictable flow in calling code. This module follows PEP-8
-style guidelines and limits line length to 88 characters for readability.
+The architecture is engineered for mission-critical applications, incorporating
+essential features such as structured, auditable logging and full internationalization
+(i18n) support for all user-facing messages.
 """
 
 from __future__ import annotations
 
-import re
 from typing import Callable, Optional, TypeVar
 
-from safe_input_veritas.logger_config.logger_setup import (
-    LoggerSetup,
-    get_logger,
-)
+from safe_input_veritas.logger_config.logger_setup import LoggerSetup
 
 __author__ = "Enock Silos"
 __email__ = "init.caucasian722@passfwd.com"
 __status__ = "Production-Stable"
 
 T = TypeVar("T")
-logger = get_logger()
 
 
 class InputValidator:
     """
-    Base class to obtain and validate user input generically with internationalized
-    message and logging support.
+    A stateful orchestrator for user input interactions.
 
-    This class provides a generic input validation engine for CLI applications
-    by requesting user input, applying a conversion function, and
-    handling exceptions gracefully, including cancellation via 'q' key or Ctrl+C.
-
-    Support dynamics language selection via optional `locale` parameter,
-    falling back to environment variable `SAFEINPUTVERITAS_LANG` or default
-    'en_US'.
-
-    Attributes:
-        None
-
-    Methods:
-        validate(
-        prompt: str,
-        converter: Callable[[str], T]),
-        error_message_key: str,
-        locale: Optional[str] = None,
-        ) -> Optional[T]:
-            Solicits input, applies converter, retries on ValueError, and returns None
-            if the user cancels input or on unexpected errors.
-
-    Usage:
-        Instantiate or subclass and call validate with appropriate parameters.
+    Each instance of this class represents a self-contained validation context,
+    encapsulating its own internationalization settings and logging components.
+    It is designed to be instantiated with a specific locale, which then governs
+    the language of all subsequent error messages and logs for that instance.
     """
 
-    @staticmethod
-    def _attempt_conversion(
-        value_str: str, converter: Optional[Callable[[str], T]]
-    ) -> T:
+    def __init__(self, locale: Optional[str] = None):
         """
-        Attempt to convert input string to target type using provided converter.
+        Constructs and configures an InputValidator instance.
+
+        This constructor establishes the validation context for the object's entire
+        lifecycle, primarily by initializing the logging and messaging subsystems
+        according to the specified locale.
 
         Args:
-            value_str (str): Raw user input.
-            converter (Optional[Callable[[str], T]]): Conversion Function.
-
-        Raises:
-            ValueError: For invalid conversions or empty string results.
-            TypeError: If converter is not callable.
-
-        Returns:
-            T: Converted value.
+            locale (Optional[str], optional): The locale identifier (e.g., "es_ES")
+                that governs the language for all messages. If `None`, the locale is
+                determined by the environment variable `SAFEINPUTVERITAS_LANG`, with
+                a final fallback to the system default ("en_US").
         """
-        if converter is None or not callable(converter):
-            error_message = "Converter must be callable."
-            logger.error(error_message)
-            raise ValueError(error_message)
-
-        converted = converter(value_str)
-
-        if isinstance(converted, str):
-            if not re.search(r"\w", converted):
-                raise ValueError("Converted string invalid.")
-
-        return converted
+        self.logger_setup = LoggerSetup(locale)
+        self.logger = self.logger_setup.logger
 
     @staticmethod
+    def _attempt_conversion(value_str: str, converter: Callable[[str], T]) -> T:
+        """
+        Delegates the raw string conversion to the provided callable.
+
+        This method acts a direct, unmediated bridge between the validation
+        orchestrator and the specific conversion strategy. Its sole responsibility
+        is to invoke the `converter` with the user's input.
+
+        Args:
+            value_str (str): The sanitized non-empty string provided by the user.
+            converter (Callable[[str], T]): The validation and conversion function.
+
+        Raises:
+            ValueError: Propagates a `ValueError` if the `converter` function fails to
+                process the input string.
+
+        Returns:
+            T: The converted value, now of the target type `T`.
+        """
+        return converter(value_str)
+
     def validate(
+        self,
         prompt: str,
-        converter: Optional[Callable[[str], T]],
+        converter: Callable[[str], T],
         error_message_key: str,
-        locale: Optional[str] = None,
     ) -> Optional[T]:
         """
-        Prompt the user for input, apply safe conversion and flexible validation
-        with support for localized messages and structured logging.
+        Orchestrates the process of requesting, sanitizing, and validating user input.
+
+        This method will loop until a valid input is provided or the user explicitly
+        cancels the operation. It separates the orchestration logic from the specific
+        validation rules, which are provided by the `converter`.
 
         Args:
-            prompt (str): The message displayed to request user input.
-            converter (Optional[[str], T]): Function converting input string to
-                target type, raising ValueError on invalid input.
-            error_message_key (str): Key to fetch localized error message shown
-                when conversion fails.
-            locale (Optional[str]): Locale code for internationalization, defaults
-                if None.
+            prompt (str): The message to display to the user when requesting input.
+            converter (Callable[[str], T]): A callable that takes the user's string
+                input and attempts to convert it to the target type `T`. It must raise
+                a `ValueError` on conversion failure.
+            error_message_key (str): The key to look up in the message files if the
+                `converter` raises a `ValueError`.
 
         Returns:
-            Optional[T]: Converted value if valid, None if user cancels input ('q' or
-                Ctrl+C) or on unexpected errors.
-
-        Raises:
-            ValueError: In `converter` parameter is None.
-            Exception: For unexpected errors during the input validation loop.
+            Optional[T]: An object of type `T` if validation is successful. `None` if
+                the user cancels the operation (e.g., by typing `'q'` or pressing
+                `Ctrl+C`).
         """
-        logger_setup = LoggerSetup(locale)
-
-        if converter is None:
-            error_message = logger_setup.get_message("converter_none_error")
-            logger_setup.logger.error(error_message)
-            raise ValueError(error_message)
-
-        effective_prompt = prompt or logger_setup.get_message("input_prompt")
+        effective_prompt = prompt or self.logger_setup.get_message("input_prompt")
 
         while True:
             try:
                 user_input = input(effective_prompt).strip()
 
                 if not user_input:
-                    logger_setup.logger.warning(
-                        logger_setup.get_message("invalid_input")
-                    )
+                    message = self.logger_setup.get_message("invalid_input")
+                    self.logger.warning(message)
                     continue
 
-                if user_input == "q":
-                    logger_setup.logger.info(
-                        logger_setup.get_message("user_interrupted")
-                    )
+                if user_input.lower() == "q":
+                    message = self.logger_setup.get_message("user_interrupted")
+                    self.logger.info(message)
                     return None
 
-                try:
-                    value = InputValidator._attempt_conversion(user_input, converter)
-                except Exception:
-                    error_message = logger_setup.get_message(error_message_key)
-                    logger_setup.logger.warning(error_message)
-                    print(error_message)
-                    continue
+                validated_value = self._attempt_conversion(user_input, converter)
 
-                return value
+                converter_identifier_name = getattr(
+                    converter, "__name__", type(converter).__name__
+                )
+
+                success_log_message = (
+                    f"Input '{user_input}' successfully validated by "
+                    f"'{converter_identifier_name}'. Result: {validated_value!r}"
+                )
+                self.logger.debug(success_log_message)
+
+                return validated_value
+
+            except ValueError:
+                message = self.logger_setup.get_message(error_message_key)
+                self.logger.warning(
+                    "Conversion failed for input '%s': %s", user_input, message
+                )
+                continue
 
             except KeyboardInterrupt:
-                logger_setup.logger.info(logger_setup.get_message("user_interrupted"))
-                print()
+                message = self.logger_setup.get_message("user_interrupted")
+                self.logger.info(message)
                 return None
-
-            except Exception as e:
-                if isinstance(e, (ValueError, TypeError)):
-                    error_message = logger_setup.get_message(error_message_key)
-                    logger_setup.logger.warning(error_message)
-                    print(error_message)
-                    continue
-
-                error_message = logger_setup.get_message("unexpected_error").format(
-                    details=e
-                )
-                logger_setup.logger.error(error_message)
-                print(error_message)
-                break
-
-        return None
