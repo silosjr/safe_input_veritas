@@ -1,28 +1,20 @@
 """
-integer - Module for validating integer user input with internationalized logging.
+integer - Provides a specialized validator for integer user inputs.
 
-This module provides a specialized IntegerValidator class which extends the
-generic InputValidator base class to specifically handle integer inputs from
-users in CLI applications.
+This module defines the IntegerValidator class, a concrete implementation that extends
+the Input Validator base class. Its primary function is to streamline the acquisition
+and validation of integer data from command-line interfaces.
 
-It integrates with SafeInputVeritas centralized logging and internationalization
-system, ensuring all user input validation follows consistent messaging,
-error handling, and logging practices.
-
-The IntegerValidator class provides a clear interface for integer input,
-facilitating reuse and extensibility across different parts of the application.
+By encapsulating the integer-specific conversion logic and error messaging, this class
+offers a simplified, high-level interface, ensuring consistency and robustness in
+accordance with the application's core validation framework.
 """
 
 from __future__ import annotations
 
 from typing import Optional
 
-from safe_input_veritas.base import (
-    InputValidator,
-)
-from safe_input_veritas.logger_config.logger_setup import (
-    get_message,
-)
+from safe_input_veritas.base import InputValidator
 
 __author__ = "Enock Silos"
 __email__ = "init.caucasian722@passfwd.com"
@@ -31,52 +23,36 @@ __status__ = "Production-Stable"
 
 class IntegerValidator(InputValidator):
     """
-    Validator class for integer inputs, extending the base InputValidator.
+    A specialized validator for acquiring and converting integer inputs.
 
-    This class encapsulates all logic and error messaging necessary to solicit,
-    validate, and convert integer user input via CLI, integrating with the
-    centralized logger and internationalized messages.
+    This class inherits the stateful, locale-aware orchestration logic from
+    InputValidator. It specializes the validation process by pre-configuring
+    it for integer conversion, thus abstracting the implementation details from
+    the caller.
 
-    Extending the base class allows easy customization and consistent handling
-    of integers across the application.
-
-    Attributes:
-        None
-
-    Methods:
-        validate_integer(
-        prompt: str = '',
-        locale: Optional[str] = None
-        ) -> Optional[int]:
-            Prompts the user for integer input, performs validation and conversion
-            logs validation steps, handles user cancellation and interruptions,
-            and returns the valid integer or None if input was canceled.
+    An instanceof this class should be created for a specific validation context,
+    potentially with a designated locale, which will govern all user-facing messages.
     """
 
-    @staticmethod
-    def validate_integer(
-        prompt: str = "",
-        locale: Optional[str] = None,
-    ) -> Optional[int]:
+    def get_integer(self, prompt: str = "") -> Optional[int]:
         """
-        Prompt the user for an integer input, validating and handling errors.
+        Orchestrates the prompting, validating, and converting of an integer.
 
-        The function uses the base generic InputValidator's validate method,
-        providing an integer casting function and localized error message.
-        It repeats input requests until valid input or cancellation.
+        This method leverages the core validation loop of the parent class.
+        It provides the necessary components for integer validation, specifically the
+        `int` conversion function and the corresponding error message key. The method
+        will persistently prompt the user until a valid integer is entered or the
+        operation is explicitly canceled.
 
         Args:
-            prompt (str, optional): The prompt shown to the user. If empty or
-                not provided, a default localized prompt message is used.
-            locale (Optional[str]): Optional locale code (e.g. 'pt_BR') for
-                message localization.
+            prompt (str, optional): The message displayed to the user. If omitted,
+                a default message from the framework is utilized.
 
         Returns:
-            Optional[int]: The validated integer if successful; None if the user
-                cancels input or interrupts the process.
+            Optional[int]: The validated integer value upon successful conversion.
+                Returns `None` if the user cancels the operation (e.g., via `'q'`
+                or `Ctrl+C`).
         """
-        error_message_key = "error_integer"
-        if not prompt:
-            prompt = get_message("input_prompt")
-
-        return InputValidator.validate(prompt, int, error_message_key, locale=locale)
+        return super().validate(
+            prompt=prompt, converter=int, error_message_key="error_integer"
+        )
