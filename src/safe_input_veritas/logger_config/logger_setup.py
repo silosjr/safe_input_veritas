@@ -1,25 +1,25 @@
 """
 logger_setup - Centralized logging setup and internationalized messages.
 
-This module configures the application-wide logging system for SafeInputVeritas,
-ensuring consistent, structured, and secure logs for auditability and
-troubleshooting. It provides a configurable logger supporting multiple
-verbosity levels and output formats suitable for CLI and production use.
+This module provides the LoggerSetup class, which configures the application-wide
+logging system for SafeInputVeritas and manages internationalized messages.
 
-Additionally, this module manages internationalized message templates for
-important validation events and errors, currently supporting English (US),
-Portuguese (BR), and Spanish (ES) locales.
+It provides a configurable logger suitable for CLI and production use. It also
+manages message templates for validation events and errors, supporting multiple
+locales.
 
 Features:
 - Standardized logging format with timestamps, levels and message context.
-- Internationalization using importlib.resources for packaged locale files.
-- Language selection via environment variable or default to English.
+- Internationalized using importlib.resources for packaged locale files.
+- Language selection via environment variable or passed during instantiation.
 - Centralized message repository to avoid hardcoded strings in code.
 - Designed for extensibility to support new languages and log handlers.
 
 Usage:
-Import `get_logger()` to obtain the configured logger instance.
-Use `get_message(key: str, lang: str = 'en_US')` to fetch localized messages.
+Instantiate the LoggerSetup class to create a configured logger context:
+>>> `logger_config = LoggerSetup(locale="pt_BR")`
+>>> `logger = logger_config.logger`
+>>> `message = logger_config.get_message("some_key")`
 """
 
 from __future__ import annotations
@@ -28,7 +28,7 @@ import importlib.resources
 import json
 import logging
 import os
-from typing import Optional
+from typing import Dict, Optional
 
 __author__ = "Enock Silos"
 __email__ = "init.caucasian722@passfwd.com"
@@ -39,28 +39,36 @@ DEFAULT_LOCALE = "en_US"
 LOCALES_PACKAGE = "safe_input_veritas.locales"
 
 
+class ConfigurationError(Exception):
+    """
+    Custom exception for critical configuration failures.
+    """
+
+
 class LoggerSetup:
     """
-    LoggerSetup configures a module-wide logger with internationalized messages.
+    Configures a logger instance with internationalized message support.
+
+    Each instance of this class represents a logging context for a specific locale,
+    loading the appropriate messages and providing a configured logger object.
 
     Attributes:
-        logger (logging.Logger): The configured logger instance.
-        messages (dict): Load messages for selected locale.
-
-    Methods:
-        get_message(key: str) -> str: Retrieve localized message string.
+        logger(logging.Logger): The configured logger instance.
+        messages (Dict[str, str]): The loaded messages for the selected locale.
+        locale (str): The effective locale used by the instance.
     """
 
     def __init__(self, locale: Optional[str] = None):
         """
-        Initialize LoggerSetup instance with specified or environment locale.
+        Initializes the LoggerSetup with a specific locale configuration.
 
         Args:
-            locale (Optional[str], optional): Locale code to load messages
-                for (e.g. en_US). If None, attempts to read SAFEINPUTVERITAS_LANG
-                env variable, falls back to 'en_US' if unset or unsupported.
+            locale (Optional[str]): The locale code (e.g., "pt_BR"). If `None`,
+                it attempts to use the `SAFEINPUTVERITAS_LANG` environment variable,
+                falling back to the default locale if necessary.
         """
         self.locale = locale or os.getenv("SAFEINPUTVERITAS_LANG", DEFAULT_LOCALE)
+
         if self.locale not in SUPPORTED_LOCALES:
             self.locale = DEFAULT_LOCALE
 
@@ -69,50 +77,73 @@ class LoggerSetup:
 
     def _setup_logger(self) -> logging.Logger:
         """
-        Setup and configure the logging.Logger instance used throughout the package.
+        Set up and configure the logging.Logger instance.
 
         Returns:
-            logging.Logger: Configured logger with DEBUG level and stream handler.
+            logging.Logger: A configured logger with a DEBUG level and a standardized
+                format via a stream handler.
         """
-        logger = logging.getLogger("SafeInputVeritas")
+        logger = logging.getLogger(f"SafeInputVeritas.{self.locale}")
         logger.setLevel(logging.DEBUG)
 
         if not logger.hasHandlers():
             stream_handler = logging.StreamHandler()
-            stream_handler.setLevel(logging.DEBUG)
             formatter = logging.Formatter(
                 fmt="[%(asctime)s][%(name)s][%(levelname)s] %(message)s",
                 datefmt="%Y-%m-%d %H:%M:%S",
             )
             stream_handler.setFormatter(formatter)
             logger.addHandler(stream_handler)
+
         return logger
 
-    def _load_messages(self) -> dict[str, str]:
+    def _load_messages(self) -> Dict[str, str]:
         """
-        Load language messages JSON file based on current locale using
-        importlib.resources.
+        Load language messages from a JSON file based on the instance's locale.
+
+        Attempts to load the specific locale first. If that fails due to the file
+        not being found or being malformed, it logs a warning and attempts to load
+        the default fallback locale file as a safety measure.
 
         Returns:
-            dict: Mapping of message keys to localized strings.
+            Dict[str, str]: A mapping of message keys to localized strings.
 
         Raises:
-            FileNotFounderError: If locale and fallback locale files are missing.
-            json.JSONDecodeError: If JSON content is malformed.
+            ConfigurationError: If the fallback locale file is also missing or
+                malformed, indicating a critical deployment error..
         """
-        resource_name = "en_US.json"
+        primary_resource = f"{self.locale}.json"
+        fallback_resource = f"{DEFAULT_LOCALE}.json"
+        package_files = importlib.resources.files(LOCALES_PACKAGE)
 
         try:
-            files = importlib.resources.files(LOCALES_PACKAGE)
-            resource_file = files / resource_name
+            resource_file = package_files / primary_resource
             with resource_file.open("r", encoding="utf-8") as f:
+                self.logger.debug("Loaded locale messages from %s", primary_resource)
                 return json.load(f)
-        except FileNotFoundError:
-            self.logger.error("Locale file %s not found", resource_name)
-            return {}
-        except Exception as e:
-            self.logger.error("Error loading locale file: %s", str(e))
-            return {}
+
+        except (FileNotFoundError, json.JSONDecodeError):
+            self.logger.warning(
+                "Locale file '%s' not found. Attempt to fallback to '%s'.",
+                primary_resource,
+                fallback_resource,
+            )
+
+        try:
+            resource_file = package_files / fallback_resource
+            with resource_file.open("r", encoding="utf-8") as f:
+                self.logger.info(
+                    "Successfully loaded fallback locale: %s", fallback_resource
+                )
+                return json.load(f)
+
+        except (FileNotFoundError, json.JSONDecodeError) as e:
+            log_message = (
+                "CRITICAL: Fallback locale file '%s' is missing or corrupt."
+                "The application cannot continue without messages."
+            )
+            self.logger.critical(log_message, fallback_resource)
+            raise ConfigurationError(log_message % fallback_resource) from e
 
     def get_message(self, key: str) -> str:
         """
@@ -122,32 +153,7 @@ class LoggerSetup:
             key (str): The message key to look up.
 
         Returns:
-            str: The localized message string if found, else returns the key itself.
+            str: The localized message string if found; otherwise, returns the key
+                itself enclosed in brackets as a fallback.
         """
-        return self.messages.get(key, key)
-
-
-_logger_setup = LoggerSetup()
-
-
-def get_logger() -> logging.Logger:
-    """
-    Get the module-wide logger instance.
-
-    Returns:
-        logging.Logger: The configured logger object.
-    """
-    return _logger_setup.logger
-
-
-def get_message(key: str) -> str:
-    """
-    Fetch a localized message by its key.
-
-    Args:
-        key (str): The message key to retrieve from loaded messages.
-
-    Returns:
-        str: Localized message if key found, else the key string itself.
-    """
-    return _logger_setup.get_message(key)
+        return self.messages.get(key, f"[{key}]")
