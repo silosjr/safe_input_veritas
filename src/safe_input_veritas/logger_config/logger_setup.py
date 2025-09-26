@@ -28,7 +28,7 @@ import importlib.resources
 import json
 import logging
 import os
-from typing import Dict, Optional, Any
+from typing import Any, Dict, Optional
 
 from safe_input_veritas.exceptions import ConfigurationError
 
