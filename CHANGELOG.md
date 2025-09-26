@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.0] - 2025-09-26
+
+### Added
+
+- High-Integrity Float Validator (`FloatValidator`): Introduced a robust, instantiable validator for floating-point numbers. It supports a rich set of configurable rules, including minimum/maximum values, maximum decimal places, and explicit handling of special values (`NaN`, `Infinity`).
+
+## [0.1.0] - 2025-09-26
+
+### Added
+
+- Centralized Exception Handling: Created a dedicated module (`exceptions.py`) with custom `ValidationError` and `ConfigurationError` types to standardize error signaling across the framework.
+
+## [0.1.0] - 2025-09-26
+
+### Changed
+
+- Enhanced Message Formatting: Upgraded `LoggerSetup` to support dynamic, placeholder-based message formatting (`**kwargs`). This enables more descriptive, context-aware error messages and logs (e.g., `"Value must be less than {max_value}")
+
+## [0.1.0] - 2025-09-25
+
+### Changed
+
+- Architectural Overhaul: Refactored the core validation engine (`InputValidator`) and (`IntegerValidator`) from a static-method approach to a stateful, instantiable class-based design. This allows validators to be configured once and reused, significantly improving flexibility and clarity.
+
 ## [0.1.0] - 2025-09-21
 
 ### Added
