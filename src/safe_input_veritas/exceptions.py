@@ -9,14 +9,16 @@ validation process.
 
 from __future__ import annotations
 
-__author__ = 'Enock Silos'
-__email__ = 'init.caucasian722@passfwd.com'
-__status__ = 'Production-Release'
+__author__ = "Enock Silos"
+__email__ = "init.caucasian722@passfwd.com"
+__status__ = "Production-Release"
+
 
 class ConfigurationError(Exception):
     """
     Custom exception for critical configuration failures.
     """
+
     pass
 
 
@@ -28,4 +30,5 @@ class ValidationError(Exception):
     defined by the specific validator instance being used. The exception message
     should be a clear, user-facing, and internationalized explanation of the failure.
     """
+
     pass
