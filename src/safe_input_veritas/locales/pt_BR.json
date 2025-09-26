@@ -8,5 +8,10 @@
     "error_integer": "ERRO: Entrada inválida para número inteiro.",
     "error_float": "ERRO: Entrada inválida para número real.",
     "error_boolean": "ERRO: Entrada booleana inválida; digite 'y' ou 'n'.",
-    "converter_none_error": "ERRO: A função conversora não pode ser None."
+    "converter_none_error": "ERRO: A função conversora não pode ser None.",
+    "error_nan_not_allowed": "Erro de Validação: NaN (Não é um Número) não é um valor permitido.",
+    "error_inf_not_allowed": "Erro de Validação: Infinito não é um valor permitido.",
+    "error_max_decimal_places": "Erro de Validação: O número de casas decimais excede o máximo permitido de {max_places}.",
+    "error_min_value": "Erro de Validação: O valor deve ser maior ou igual a {min_value}.",
+    "error_max_value": "Erro de Validação: O valor deve ser menor ou igual a {max_value}."
 }
