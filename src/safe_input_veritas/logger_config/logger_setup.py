@@ -159,7 +159,6 @@ class LoggerSetup:
             return message_template.format(**kwargs)
         except KeyError as e:
             self.logger.error(
-                "Missing placeholder '%s' in format args for message key '%s'",
-                e, key
+                "Missing placeholder '%s' in format args for message key '%s'", e, key
             )
             return f"[FORMATTING ERROR: {key}]"
