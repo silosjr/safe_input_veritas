@@ -28,7 +28,9 @@ import importlib.resources
 import json
 import logging
 import os
-from typing import Dict, Optional
+from typing import Dict, Optional, Any
+
+from safe_input_veritas.exceptions import ConfigurationError
 
 __author__ = "Enock Silos"
 __email__ = "init.caucasian722@passfwd.com"
@@ -37,12 +39,6 @@ __status__ = "Production-Stable"
 SUPPORTED_LOCALES = ("en_US", "pt_BR", "es_ES")
 DEFAULT_LOCALE = "en_US"
 LOCALES_PACKAGE = "safe_input_veritas.locales"
-
-
-class ConfigurationError(Exception):
-    """
-    Custom exception for critical configuration failures.
-    """
 
 
 class LoggerSetup:
@@ -145,15 +141,25 @@ class LoggerSetup:
             self.logger.critical(log_message, fallback_resource)
             raise ConfigurationError(log_message % fallback_resource) from e
 
-    def get_message(self, key: str) -> str:
+    def get_message(self, key: str, **kwargs: Any) -> str:
         """
         Retrieve the localized message string for a given key.
 
         Args:
             key (str): The message key to look up.
+            **kwargs (Any): The values to substitute into the message's placeholders.
 
         Returns:
-            str: The localized message string if found; otherwise, returns the key
-                itself enclosed in brackets as a fallback.
+            str: The formatted, localized message string if the key is found;
+                otherwise, returns the key itself enclosed in brackets.
         """
-        return self.messages.get(key, f"[{key}]")
+        message_template = self.messages.get(key, f"[{key}]")
+
+        try:
+            return message_template.format(**kwargs)
+        except KeyError as e:
+            self.logger.error(
+                "Missing placeholder '%s' in format args for message key '%s'",
+                e, key
+            )
+            return f"[FORMATTING ERROR: {key}]"

@@ -8,5 +8,10 @@
     "error_integer": "ERROR: Invalid integer input.",
     "error_float": "ERROR: Invalid floating point input.",
     "error_boolean": "ERROR: Invalid boolean input; please enter 'y' or 'n'.",
-    "converter_none_error": "ERROR: Converter function cannot be None."
+    "converter_none_error": "ERROR: Converter function cannot be None.",
+    "error_nan_not_allowed": "Validation Error: NaN (Not a Number) is not an allowed value.",
+    "error_inf_not_allowed": "Validation Error: Infinity is not an allowed value.",
+    "error_max_decimal_places": "Validation Error: The number of decimal places exceeds the maximum allowed of {max_places}.",
+    "error_min_value": "Validation Error: The value must be greater than or equal to {min_value}.",
+    "error_max_value": "Validation Error: The value must be less than or equal to {max_value}."
 }
