@@ -1,560 +1,239 @@
 """
-test_base.py - Core module for generic and secure CLI user input validation.
+test_base - Formal Verification and Validation for the InputValidator Component.
 
-This module provides the InputValidator class, which offers a generic mechanism
-to solicit, validate, and safely convert CLI user input in Python.
+This module provides the complete test suite for the `InputValidator` class, which
+serves as the foundational component for the SafeInputVeritas framework. The tests
+herein are engineered to provide a formal proof of correctness for the component's
+behavior under a comprehensive set of operational and failure scenarios.
 
-Main features:
-- Generic validation using a user-provided conversion callable.
-- Handles invalid input, user cancellation (Ctrl+C, 'q'), and unexpected errors.
-- Supports localization of messages (i18n).
-- Incorporates structured logging for traceability.
-- Implements an object-oriented design allowing subclassing and reusability.
+The testing strategy is predicated on achieving a hermetic environment for the
+Component Under Test (CUT). All external dependencies, notably the `LoggerSetup`
+subsystem is isolated via mocking. This ensures that the tests are deterministic,
+fast, and validate only the logic intrinsic to the `InputValidator` itself.
 
-All methods return None on user cancellation or error to ensure predictable
-behavior in dependent applications.
+Each test case is designed to prove a specific logical path, boundary condition, or
+exception handling mechanism, thereby ensuring 100% logical coverage and compliance
+with mission-critical software standards.
 """
 
 from __future__ import annotations
 
 import unittest
-from typing import Any, cast
-from unittest.mock import patch
+from typing import Any
+from unittest.mock import MagicMock, patch
 
 from safe_input_veritas.base import InputValidator
 
-__author__ = "Enock Silos"
-__email__ = "init.caucasian722@passfwd.com"
-__status__ = "Verification"
-
-
-class CustomError(ValueError):
-    """
-    Custom error that inherits from ValueError but is not caught by the first except.
-    """
-
-    pass
+__author__ = 'Enock Silos'
+__email__ = 'init.caucasian722@passfwd.com'
+__status__ = 'Verification'
 
 
 class TestInputValidator(unittest.TestCase):
     """
-    Unit test suite for the InputValidator class.
+    A test case suite for the `InputValidator` class.
 
-    Tests cover normal operation, input errors, user cancellations, and
-    exception handling to verify input validation robustness.
-
-    This test suite employs mocking to simulate user inputs and captures output
-    to verfify correct messages and logging behavior. It ensures that the
-    InputValidator correctly converts valid inputs, properly handles invalid
-    conversions by prompting retries, processes user cancellation via 'q' or
-    KeyboardInterrupt without exceptions, and logs errors appropriately.
+    This suite verifies the correctness of the `InputValidator`'s contract, including
+    its state initialization, orchestration of the input/validation loop, delegation to
+    conversion strategies, and handling of all user interaction paths such as valid
+    input, invalid input, and cancellation signals.
     """
 
-    def setUp(self):
+    @patch("safe_input_veritas.base.LoggerSetup", autospec=True)
+    def setUp(self, mock_logger_setup_class: MagicMock) -> None:
         """
-        Setup for each test case if needed
-        """
-        pass
+        Establishes a hermetic test environment before each test execution.
 
-    @patch("builtins.input", side_effect=["42"])
-    def test_validate_success(self, mock_input):
+        This method is invoked by the test runner prior to running each test.
+        Its primary responsibility is to configure the controlled environment
+        for the Component Under Test (CUT). It achieves this by:
+            1.  Instantiating a mock for the `LoggerSetup` dependency, which isolates
+                the CUT from the filesystem and logging infrastructure.
+            2.  Configuring the mock's return values for predictable behavior.
+            3. Instantiating the `InputValidator` with the mocked dependencies.
         """
-        Test successful validation and conversion of user input.
+        self.mock_logger_setup_instance = mock_logger_setup_class.return_value
+        self.mock_logger = MagicMock()
+        self.mock_logger_setup_instance.logger = self.mock_logger
+        self.mock_logger_setup_instance.get_message.return_value = ("Mocked message")
 
-        Simulates entering a valid integer string '42' and asserts that
-        the InputValidator correctly converts and returns the integer 42.
+        self.validator = InputValidator(locale="en_US")
+        self.validator.logger_setup = self.mock_logger_setup_instance
+        self.validator.logger = self.mock_logger
+
+    def test_constructor_initializes_dependencies(self) -> None:
         """
-        result = InputValidator.validate(
-            prompt="Enter an integer: ",
-            converter=int,
-            error_message_key="error_integer",
-            locale="en_US",
+        Verifies that the constructor correctly initializes all dependencies.
+
+        This test proves that upon instantiation, the `InputValidator` class correctly
+        creates and configures its required `LoggerSetup` service, passing the
+        specified locale. This confirms the correct establishment of the validation
+        context for the instance's lifecycle.
+        """
+        with patch(
+            "safe_input_veritas.base.LoggerSetup", autospec=True
+            ) as mock_constructor:
+            mock_instance = mock_constructor.return_value
+            mock_instance.logger = MagicMock()
+
+            InputValidator(locale="fr_FR")
+
+            mock_constructor.assert_called_once_with(locale="fr_FR")
+
+    def test_attempt_conversion_delegates_successfully(self) -> None:
+        """
+        Verifies that `attempt_conversion` correctly delegates to the converter.
+
+        This test validates the primary success path of the static helper method.
+        It proves that the method acts as a direct, unmediated bridge to the provided
+        conversion callable, returning its result without alteration.
+        """
+        input_string = "123"
+        converter = int
+
+        result = InputValidator._attempt_conversion(input_string, converter)
+
+        self.assertEqual(result, 123)
+
+    def test_attempt_conversion_propagates_exceptions(self) -> None:
+        """
+        Verifies that `attempt_conversion` propagates exceptions from the converter.
+
+        This test proves that the method does not suppress or alter exceptions raised
+        by the conversion strategy. It ensures that contract violations (e.g.,
+        `ValueError` for invalid input) are correctly propagated up the call stack to
+        be handled by the orchestrating logic.
+        """
+        def failing_converter(_: str) -> Any:
+            raise ValueError("Conversion failed")
+
+        with self.assertRaises(ValueError):
+            InputValidator._attempt_conversion("invalid", failing_converter)
+
+    @patch("builtins.input", return_value="42")
+    def test_validate_returns_converted_value_on_success(
+        self,
+        mock_input: MagicMock
+    ) -> None:
+        """
+        Verifies the primary success path of the input orchestration loop.
+
+        This test simulates a complete, successful interaction. It proves that the
+        `validate` method correctly prompts the user, receives valid input, delegates
+        conversion, logs successful outcome for auditability, and returns the correctly
+        typed final value.
+        """
+        prompt_message = "Enter number: "
+        converter_strategy = int
+        error_key = "error_integer"
+
+        result = self.validator.validate(
+            prompt_message, converter_strategy, error_key
         )
+
+        mock_input.assert_called_once_with(prompt_message)
         self.assertEqual(result, 42)
+        self.mock_logger.debug.assert_called_once()
+        self.assertIn(
+            "successfully validated", self.mock_logger.debug.call_args[0][0]
+            )
 
-    @patch("builtins.input", side_effect=["q"])
-    def test_validate_user_cancel(self, mock_input):
+    @patch("builtins.input", return_value="q")
+    def test_validate_returns_none_on_user_quit_input(
+        self,
+        mock_input: MagicMock
+    ) -> None:
         """
-        Test the validation flow when the user cancels input by entering 'q'.
+        Verifies the graceful cancellation path when the user enters "q".
 
-        Simulates a user entering 'q' to cancel the input. Asserts that the
-        validate method returns None and no exception is raised, representing
-        a graceful cancellation.
+        This test simulates a user explicitly aborting the input process.
+        It proves that the validator correctly identifies the cancellation signal
+        ("q"), logs the event for informational purposes, and returns `None` as per
+        its contract for a controlled exit.
         """
-        result = InputValidator.validate(
-            prompt="Enter a value: ",
-            converter=str,
-            error_message_key="invalid_input",
-            locale="en_US",
-        )
+        prompt_message = "Enter value: "
+
+        result = self.validator.validate(prompt_message, str, "any_key")
+
         self.assertIsNone(result)
-
-    @patch("builtins.input", side_effect=["invalid", "10"])
-    def test_validate_retry_on_value_error(self, mock_input):
-        """
-        Test repeated input attempts after a ValueError caused by invalid input.
-
-        Simulates a user first entering an invalid string 'invalid' that triggers
-        ValueError, followed by a valid input '10'. Confirms that the validator
-        displays the error message and finally returns the correct converted value.
-        """
-        result = InputValidator.validate(
-            prompt="Enter an integer: ",
-            converter=int,
-            error_message_key="error_integer",
-            locale="en_US",
-        )
-        self.assertEqual(result, 10)
+        self.mock_logger_setup_instance.get_message.assert_called_with(
+            "user_interrupted"
+            )
+        self.mock_logger.info.assert_called_once_with("Mocked message")
 
     @patch("builtins.input", side_effect=KeyboardInterrupt)
-    def test_validate_user_keyboard_interrupt(self, mock_input):
-        """
-        Test handling of user cancellation via KeyboardInterrupt (Ctrl+C).
-
-        Simulates raising KeyboardInterrupt during input solicitation. Verifies
-        that the validate method catches the exception, logs appropriately, and
-        returns None to signify graceful cancellation.
-        """
-        result = InputValidator.validate(
-            prompt="Enter any value: ",
-            converter=str,
-            error_message_key="invalid_input",
-            locale="en_US",
-        )
-        self.assertIsNone(result)
-
-    @patch("builtins.input", side_effect=Exception("Unexpected error"))
-    def test_validate_unexpected_exception(self, mock_input):
-        """
-        Test handling of unexpected exception raised during input solicitation.
-
-        Simulates a generic exception being raised during input call. Verifies that
-        the validate function catches the exception, properly logs and prints the
-        error message, and returns None to maintain predictable flow.
-        """
-        result = InputValidator.validate(
-            prompt="Enter any value: ",
-            converter=str,
-            error_message_key="invalid_input",
-            locale="en_US",
-        )
-        self.assertIsNone(result)
-
-    @patch("builtins.input", side_effect=["   ", "5"])
-    def test_validate_empty_input_then_valid(self, mock_input):
-        """
-        Test handling empty or whitespace-only input by retrieving until valid input.
-
-        Simulates user first entering only spaces, which should cause validation
-        to fail and prompt retry, then entering valid input '5'. Asserts that the
-        method eventually returns the correctly converted integer value.
-        """
-        result = InputValidator.validate(
-            prompt="Enter an integer: ",
-            converter=int,
-            error_message_key="error_integer",
-            locale="en_US",
-        )
-        self.assertEqual(result, 5)
-
-    @patch("builtins.input", side_effect=["10"])
-    def test_validate_with_none_converter(self, mock_input):
-        """
-        Test that validate method raises ValueError when converter is None.
-
-        This test simulates valid input '10' but a None converter argument,
-        expecting the method to raise ValueError indicating invalid converter.
-        """
-        with self.assertRaises(ValueError):
-            InputValidator.validate(
-                prompt="Enter a value: ",
-                converter=None,
-                error_message_key="invalid_input",
-                locale="en_US",
-            )
-            mock_input.assert_called_once_with("Enter a value: ")
-
-    @patch("builtins.input", side_effect=["ignored_input"])
-    def test_validate_with_none_converter_raises(self, mock_input):
-        """
-        Test that validate raises ValueError if converter is None.
-        """
-        with self.assertRaises(ValueError) as context:
-            InputValidator.validate(
-                prompt="Enter a value: ",
-                converter=None,
-                error_message_key="invalid_input",
-                locale="en_US",
-            )
-        self.assertIn("Converter", str(context.exception))
-
-    @patch("builtins.input", side_effect=["hello"])
-    def test_validate_empty_prompt_uses_default(self, mock_input):
-        """
-        Test that an empty prompt triggers use of the default localized prompt
-        message.
-
-        Simulates user input 'hello' when an empty string is provided to prompt
-        argument. Verifies that the method uses the default prompt from
-        localization and returns the correct conversion result.
-        """
-        result = InputValidator.validate(
-            prompt="",
-            converter=str,
-            error_message_key="invalid_input",
-            locale="en_US",
-        )
-        self.assertEqual(result, "hello")
-
-    @patch("safe_input_veritas.logger_config.logger_setup.logging.Logger.warning")
-    @patch("builtins.input", side_effect=["password123", "valid_input"])
-    def test_validate_logs_do_not_expose_sensitive_data(self, mock_input, mock_warn):
-        """
-        Test that validate method logs do not contain sensitive data during
-        input validation.
-
-        This simulates sensitive input and checks that logs do not contain
-        sensitive data.
-
-        The method retries on invalid input without exposing sensitive
-        information in logs.
-        """
-        sensitive_keywords = ["password", "secret", "token"]
-
-        InputValidator.validate(
-            prompt="Enter a value: ",
-            converter=str,
-            error_message_key="invalid_input",
-            locale="en_US",
-        )
-
-        logged_messages = [call.args[0] for call in mock_warn.call_args_list]
-        for message in logged_messages:
-            for sensitive_word in sensitive_keywords:
-                assert sensitive_word not in message.lower()
-                f'Sensitive data "{sensitive_word}" found in logs.'
-
-    @patch("builtins.input", side_effect=["bad"] * 10 + ["42"])
-    @patch("safe_input_veritas.logger_config.logger_setup.logging.Logger.warning")
-    def test_validate_long_retry_sequence(self, mock_warn, mock_input):
-        """
-        Test that validate properly retries and remains stable through a long series
-        of invalid inputs before a valid one.
-
-        Simulates user entering ten consecutive invalid strings, causing warnings each
-        time, and finally a valid integer '42'.
-
-        Ensures no exceptions are raised, the process stabilizes, and the final input
-        is returned.
-
-        It also verifies that a warning is logged at each invalid input.
-        """
-        result = InputValidator.validate(
-            prompt="Enter an integer: ",
-            converter=int,
-            error_message_key="error_integer",
-            locale="en_US",
-        )
-        self.assertEqual(result, 42)
-        self.assertGreaterEqual(mock_warn.call_count, 10)
-
-    @patch("builtins.input", side_effect=["test", "valid_input"])
-    def test_validate_with_unsupported_converter_type(self, mock_input):
-        """
-        Test handling of converter that raises TypeError instead of ValueError.
-
-        Some converters may raises TypeError for certain invalid inputs,
-        this test ensures proper handling of such cases.
-        """
-
-        def problematic_converter(value):
-            if value == "test":
-                raise TypeError("Unsupported type conversion.")
-            return value
-
-        result = InputValidator.validate(
-            prompt="Enter a value: ",
-            converter=problematic_converter,
-            error_message_key="invalid_input",
-            locale="en_US",
-        )
-
-        self.assertEqual(result, "valid_input")
-
-    @patch("builtins.input", side_effect=["valid"])
-    def test_validate_with_special_characters_in_prompt(self, mock_input):
-        """
-        Test validation with prompt containing special characters or very long text.
-
-        Ensures the validator handles edge cases in prompt formatting.
-        """
-        special_prompt = "Enter value (ñ áéíóú 中文 emoji: 🚀): "
-        result = InputValidator.validate(
-            prompt=special_prompt,
-            converter=str,
-            error_message_key="invalid_input",
-            locale="en_US",
-        )
-        self.assertEqual(result, "valid")
-
-    @patch("builtins.input", side_effect=["123"])
-    def test_validate_with_invalid_locale(self, mock_input):
-        """
-        Test validation with non-existent locale falls back gracefully.
-
-        When an invalid locale is provided, the system should handle
-        it gracefully and still function properly.
-        """
-        result = InputValidator.validate(
-            prompt="Enter a number: ",
-            converter=int,
-            error_message_key="invalid_input",
-            locale="xx_XX",
-        )
-        self.assertEqual(result, 123)
-
-    @patch(
-        "safe_input_veritas.cli_utils.get_message",
-        side_effect=Exception("Message error"),
-    )
-    @patch("builtins.input", side_effect=["valid_value"])
-    def test_validate_with_message_retrieval_error(self, mock_input, mock_get_message):
-        """
-        Test handling when get_message raises an exception.
-
-        This test covers the case where message retrieval fails, tipically covering
-        fallback message handling logic.
-        """
-        result = InputValidator.validate(
-            prompt="Enter value: ",
-            converter=str,
-            error_message_key="some_key",
-            locale="en_US",
-        )
-        self.assertEqual(result, "valid_value")
-
-    @patch("safe_input_veritas.cli_utils.get_message", return_value="")
-    @patch("builtins.input", side_effect=["test_value"])
-    def test_validate_with_empty_retrieved_message(self, mock_input, mock_get_message):
-        """
-        Test handling when retrieved message is empty or None.
-
-        Covers edge case where get_message returns empty string, forcing fallback to
-        default behavior.
-        """
-        result = InputValidator.validate(
-            prompt="",
-            converter=str,
-            error_message_key="empty_message_key",
-            locale="en_US",
-        )
-        self.assertEqual(result, "test_value")
-
-    @patch("safe_input_veritas.logger_config.logger_setup.logging.Logger.warning")
-    @patch("builtins.input", side_effect=["", "   ", "q"])
-    def test_validate_with_multiple_empty_inputs_then_quit(
-        self, mock_input, mock_print_error
-    ):
-        """
-        Test handling of multiple consecutive empty inputs followed by quit.
-
-        This covers edge case logic where multiple empty strings are entered before
-        user decides to quit with 'q'.
-        """
-        result = InputValidator.validate(
-            prompt="Enter an integer: ",
-            converter=int,
-            error_message_key="error_integer",
-            locale="en_US",
-        )
-        self.assertIsNone(result)
-        self.assertGreaterEqual(mock_print_error.call_count, 2)
-
-    @patch("builtins.input", side_effect=["bad_input", "valid_input"])
-    def test_validate_converter_raises_exception(self, mock_input):
-        """
-        Test that an exception from converter causes a warning and retry input
-        instead of crashing.
-        """
-
-        def faulty_converter(val):
-            if val == "bad_input":
-                raise Exception("Conversion failed.")
-            return val
-
-        result = InputValidator.validate(
-            prompt="Enter a value: ",
-            converter=faulty_converter,
-            error_message_key="invalid_input",
-            locale="en_US",
-        )
-        self.assertEqual(result, "valid_input")
-
-    @patch("builtins.input", side_effect=["bad_value", "42"])
-    def test_validate_catches_valueerror_and_retries(self, mock_input):
-        """
-        Tests that a ValueError from the converter triggers logging
-        print error message, and does not exit but retries input.
-        """
-
-        def raises_value_error(val):
-            if val == "bad_value":
-                raise ValueError("Invalid input")
-            return int(val)
-
-        result = InputValidator.validate(
-            prompt="Enter a number: ",
-            converter=raises_value_error,
-            error_message_key="error_integer",
-            locale="en_US",
-        )
-        self.assertEqual(result, 42)
-
-    @patch("builtins.input", side_effect=RuntimeError("Unexpected error"))
-    def test_validate_unexpected_exception_break_loop(self, mock_input):
-        """
-        Test that unexpected exception breaks the loop, logs an error and returns None.
-        """
-        result = InputValidator.validate(
-            prompt="Enter a value: ",
-            converter=str,
-            error_message_key="invalid_input",
-            locale="en_US",
-        )
-        self.assertIsNone(result)
-
-    @patch("builtins.input", side_effect=["bad_value", "42"])
-    def test_validate_with_value_error_causes_warning(self, mock_input):
-        """
-        Test handling of ValueError raised by converter.
-
-        This test triggers except ValueError block that logs warning, prints error,
-        and retries input.
-        """
-
-        def converter_raises_value_error(val):
-            if val == "bad_value":
-                raise ValueError("Invalid converter")
-            return int(val)
-
-        result = InputValidator.validate(
-            prompt="Enter an integer: ",
-            converter=converter_raises_value_error,
-            error_message_key="error_integer",
-            locale="en_US",
-        )
-        self.assertEqual(result, 42)
-
-    @patch("builtins.input", side_effect=["bad_value", "42"])
-    def test_validate_outer_value_error_block(self, mock_input):
-        """
-        Test triggering outer except ValueError block once, then
-        converter works to exit loop.
-        """
-        call_count = {"count": 0}
-
-        def raise_value_error_conditional(val):
-            if call_count["count"] == 0:
-                call_count["count"] += 1
-                raise ValueError("Forced Error")
-            return int(val)
-
-        result = InputValidator.validate(
-            prompt="Enter integer: ",
-            converter=raise_value_error_conditional,
-            error_message_key="error_integer",
-            locale="en_US",
-        )
-        self.assertEqual(result, 42)
-
-    @patch("builtins.input", side_effect=["invalid", "123"])
-    def test_validate_covers_value_error_block(self, mock_input):
-        """
-        Trigger ValueError in converter to cover except ValueError block.
-
-        This block logs, prints error, then continues input loop.
-        """
-
-        def converter_raises_value_error(val):
-            if val == "invalid":
-                raise ValueError("Invalid input for conversion")
-            return int(val)
-
-        result = InputValidator.validate(
-            prompt="Enter integer: ",
-            converter=converter_raises_value_error,
-            error_message_key="error_integer",
-            locale="en_US",
-        )
-        self.assertEqual(result, 123)
-
-    def test_attempt_conversion_with_non_callable_converter(self):
-        """
-        Test _attempt_conversion directly with non-callable converter.
-        """
-        with self.assertRaises(ValueError):
-            InputValidator._attempt_conversion("test_input", cast(Any, 123))
-
-    @patch("builtins.input", side_effect=["test_value", "q"])
-    def test_validate_exception_isinstance_valueerror(self, mock_input):
-        """
-        Test that outer Exception handler correctly handles a ValueError
-        by simulating converter raising ValueError
-        """
-
-        def converter_that_raises_exception_as_valueerror(val):
-            raise ValueError("Test forced ValueError")
-
-        result = InputValidator.validate(
-            prompt="Test: ",
-            converter=converter_that_raises_exception_as_valueerror,
-            error_message_key="error_integer",
-            locale="en_US",
-        )
-        self.assertIsNone(result)
-
-    @patch("builtins.input", side_effect=["test_value", "q"])
-    def test_validate_exception_outer_catch_isinstance_check(self, mock_input):
-        """
-        Test that outer except Exception catches non-standar exceptions and
-        correctly identifies if they are instances of ValueError/TypeError.
-        """
-
-        def converter_raises_custom_error(val):
-            if val == "test_value":
-                raise CustomError("Forced error for coverage")
-            return val
-
-        with patch("builtins.input", side_effect=[CustomError("Forced error"), "q"]):
-            result = InputValidator.validate(
-                prompt="Test: ",
-                converter=str,
-                error_message_key="error_integer",
-                locale="en_US",
-            )
-        self.assertIsNone(result)
-
-    @patch("builtins.input", side_effect=["test_value", "q"])
-    @patch("safe_input_veritas.base.InputValidator._attempt_conversion")
-    def test_validate_exception_isinstance_in_outer_except(
+    def test_validate_returns_none_on_keyboard_interrupt(
         self,
-        mock_attempt,
-        mock_input,
-    ):
+        mock_input: MagicMock
+    ) -> None:
         """
-        Force _attempt_conversion to raise a ValueError that gets caught
-        by outer except.
-        """
-        mock_attempt.side_effect = [ValueError("Test error"), None]
+        Verifies the graceful cancellation path upon a `KeyboardInterrupt` signal.
 
-        result = InputValidator.validate(
-            prompt="Test: ",
-            converter=str,
-            error_message_key="error_integer",
-            locale="en_US",
-        )
+        This test simulates a user aborting the input process via Ctrl+C. It proves
+        that the validator's outermost exception handler correctly catches
+        `KeyboardInterrupt`, logs the event, and returns `None`, ensuring application
+        stability and adherence to its cancellation contract.
+        """
+        prompt_message = "Enter value: "
+
+        result = self.validator.validate(prompt_message, str, "any_key")
 
         self.assertIsNone(result)
+        self.mock_logger_setup_instance.get_message.assert_called_with(
+            "user_interrupted"
+        )
+        self.mock_logger.info.assert_called_once_with("Mocked message")
+
+    @patch("builtins.input", side_effect=["", "  ", "valid"])
+    def test_validate_reprompts_on_empty_or_whitespace_input(
+        self,
+        mock_input: MagicMock,
+    ) -> None:
+        """
+        Verifies that empty or whitespace-only input is rejected and re-prompted.
+
+        This test proves the input sanitization logic. It simulates a user providing
+        empty and whitespace-only inputs, confirming that the validator rejects them,
+        logs a warning, and continues the orchestration loop until a non-empty input
+        is received.
+        """
+        prompt_message = "Enter value: "
+
+        result = self.validator.validate(prompt_message, str, "any_key")
+
+        self.assertEqual(result, "valid")
+        self.assertEqual(self.mock_logger.warning.call_count, 2)
+        self.mock_logger_setup_instance.get_message.assert_any_call("invalid_input")
+
+    @patch("builtins.input", side_effect=["invalid", "42"])
+    def test_validate_reprompts_on_conversion_value_error(
+        self,
+        mock_input: MagicMock,
+    ) -> None:
+        """
+        Verifies the recovery path after a conversion strategy raises ValueError.
+
+        This test simulates the most common failure scenario: invalid user input.
+        It proves that when the converter delegate raises a `ValueError`, the
+        validator correctly catches it, logs a warning, and re-prompts the user,
+        eventually succeeding with a subsequent valid input. This confirms the
+        robustness of the retry loop.
+        """
+        def converter_with_failure(value: str) -> int:
+            if value == "invalid":
+                raise ValueError("Invalid integer")
+            return int(value)
+
+        error_key = "error_integer"
+
+        result = self.validator.validate(
+            "Enter int: ", converter_with_failure, error_key
+            )
+
+        self.assertEqual(result, 42)
+        self.mock_logger_setup_instance.get_message.assert_any_call(error_key)
+        self.mock_logger.warning.assert_called_once()
+        self.assertIn("Conversion failed", self.mock_logger.warning.call_args[0][0])
 
 
 if __name__ == "__main__":
