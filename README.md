@@ -2,7 +2,7 @@
 Secure, auditable, and extensible user input validation framework for Python CLI applications.
 
 ## __Overview__
-__*SafeInputVeritas*__ centralizes user input handling for command-line applications with a robust, zero-trust validation engine, internationalized messaging (i18n), and structured logging designed for auditability and production reliability. It enforces strict, reusable validation with graceful cancellation and predictable control flow for security-sensitive environments.
+__SafeInputVeritas__ centralizes user input handling for command-line applications with a robust, zero-trust validation engine, internationalized messaging (i18n), and structured logging designed for auditability and production reliability. It enforces strict, reusable validation with graceful cancellation and predictable control flow for security-sensitive environments.
 
 ## __Key Features__
 - Object-oriented validation core with a generic engine and typed wrappers (`int`, `float`, `bool`).
